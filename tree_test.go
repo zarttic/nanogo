@@ -14,7 +14,6 @@ func TestTreeNode_Get(t *testing.T) {
 	root := &treeNode{name: "/", children: make([]*treeNode, 0)}
 	root.Put("/usr/get/:id")
 	node := root.Get("/usr/get/1")
-	t.Log(node)
 	assert.Equal(t, ":id", node.name)
 	root.Put("/usr/put/:name")
 	node = root.Get("/usr/put/zarttic")
