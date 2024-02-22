@@ -11,12 +11,29 @@ const ANY = "ANY"
 // HandlerFunc 处理器
 type HandlerFunc func(ctx *Context)
 
-// 路由组
+// MiddlewareFunc 中间件
+type MiddlewareFunc func(handlerFunc HandlerFunc) HandlerFunc
+
+// routerGroup 结构体表示一个路由器组
 type routerGroup struct {
-	name             string
-	handleFuncMap    map[string]map[string]HandlerFunc
-	handlerMethodMap map[string][]string
-	treeNode         *treeNode
+	name             string                            // 路由器组名称
+	handleFuncMap    map[string]map[string]HandlerFunc // 处理函数映射表，键为路由路径，值为处理函数
+	handlerMethodMap map[string][]string               // 处理方法映射表，键为路由路径，值为处理方法
+	treeNode         *treeNode                         // 路由树节点
+	middleWares      []MiddlewareFunc                  // 前置中间件函数列表
+}
+
+func (r *routerGroup) Use(middleware ...MiddlewareFunc) {
+	r.middleWares = append(r.middleWares, middleware...)
+}
+func (r *routerGroup) methodHandle(handle HandlerFunc, ctx *Context) {
+	if r.middleWares != nil {
+		for _, middlewareFunc := range r.middleWares {
+			handle = middlewareFunc(handle)
+		}
+	}
+	handle(ctx)
+
 }
 
 func (r *routerGroup) handle(name, method string, handleFunc HandlerFunc) {
@@ -104,26 +121,29 @@ func New() *Engine {
 	}
 }
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.httpRequestHandle(w, r)
+}
+func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	for _, group := range e.routerGroups {
 		routerName := SubstringLast(r.RequestURI, "/"+group.name)
 		node := group.treeNode.Get(routerName)
 		if node == nil || !node.isEnd {
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintln(w, r.RequestURI+" not found")
+			_, _ = fmt.Fprintln(w, r.RequestURI+" not found")
 			return
 		}
 		if node != nil {
 			ctx := &Context{W: w, R: r}
 			handle, ok := group.handleFuncMap[node.routerName][ANY]
 			if ok {
-				handle(ctx)
+				group.methodHandle(handle, ctx)
 				return
 			}
 			//method 匹配
 			handle, ok = group.handleFuncMap[node.routerName][method]
 			if ok {
-				handle(ctx)
+				group.methodHandle(handle, ctx)
 				return
 			}
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -132,8 +152,9 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprintf(w, "%s  not found\n", r.RequestURI)
+	_, _ = fmt.Fprintf(w, "%s  not found\n", r.RequestURI)
 }
+
 func (e *Engine) Run() {
 	http.Handle("/", e)
 	err := http.ListenAndServe(":9421", nil)
