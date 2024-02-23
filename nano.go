@@ -107,7 +107,9 @@ type router struct {
 	routerGroups []*routerGroup
 }
 
+// Group Group函数用于创建一个路由组
 func (r *router) Group(name string) *routerGroup {
+	// 创建一个routerGroup对象
 	group := &routerGroup{
 		name:             name,
 		handleFuncMap:    make(map[string]map[string]HandlerFunc),
@@ -118,7 +120,9 @@ func (r *router) Group(name string) *routerGroup {
 		},
 		middlewaresFuncMap: make(map[string]map[string][]MiddlewareFunc),
 	}
+	// 将routerGroup对象添加到router的routerGroups切片中
 	r.routerGroups = append(r.routerGroups, group)
+	// 返回创建的routerGroup对象
 	return group
 }
 
