@@ -18,5 +18,7 @@ func TestTreeNode_Get(t *testing.T) {
 	root.Put("/usr/put/:name")
 	node = root.Get("/usr/put/zarttic")
 	assert.Equal(t, ":name", node.name)
+	node = root.Get("/usr/put/anni112")
+	assert.Equal(t, ":name", node.name)
 
 }
